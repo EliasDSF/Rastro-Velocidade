@@ -335,34 +335,35 @@ def _extrair_legenda_painel(panel: Image.Image) -> dict[str, object] | None:
                             if abs(candidate_value - percentual_visual) <= 20:
                                 leituras_percentual.append((round(candidate_value, 2), candidate_text))
 
-    percentage = None
-    percent_text = ""
-    if leituras_percentual:
-        contagem = Counter(value for value, _ in leituras_percentual)
-        valores_validos = list(contagem)
-        if percentual_visual >= 75:
-            altos = [valor for valor in valores_validos if valor >= 60]
-            if altos:
-                valores_validos = altos
-        com_simbolo = {
-            valor for valor, texto_lido in leituras_percentual
-            if "%" in texto_lido
-        }
-        confiaveis = [valor for valor in valores_validos if valor in com_simbolo]
-        if confiaveis:
-            valores_validos = confiaveis
-        alvo_visual = min(100.0, percentual_visual)
-        proximos = [
-            valor for valor in valores_validos
-            if abs(valor - alvo_visual) <= 15
-        ]
-        if proximos:
-            valores_validos = proximos
-        percentage = min(
-            valores_validos,
-            key=lambda valor: (-contagem[valor], abs(valor - alvo_visual)),
-        )
-        percent_text = next(text for value, text in leituras_percentual if value == percentage)
+   percentage = None
+percent_text = ""
+if leituras_percentual:
+    contagem = Counter(value for value, _ in leituras_percentual)
+    valores_validos = list(contagem)
+    if percentual_visual >= 75:
+        altos = [valor for valor in valores_validos if valor >= 60]
+        if altos:
+            valores_validos = altos
+    com_simbolo = {
+        valor for valor, texto_lido in leituras_percentual
+        if "%" in texto_lido
+    }
+    confiaveis = [valor for valor in valores_validos if valor in com_simbolo]
+    if confiaveis:
+        valores_validos = confiaveis
+    alvo_visual = min(100.0, percentual_visual)
+    proximos = [
+        valor for valor in valores_validos
+        if abs(valor - alvo_visual) <= 25
+    ]
+    if proximos:
+        valores_validos = proximos
+    # CHAVE: prioriza proximidade visual, depois frequência
+    percentage = min(
+        valores_validos,
+        key=lambda valor: (round(abs(valor - alvo_visual), 1), -contagem[valor]),
+    )
+    percent_text = next(text for value, text in leituras_percentual if value == percentage)
 
     if speed_range is None or percentage is None:
         return None
