@@ -201,7 +201,8 @@ def ler_percentuais(text: str) -> list[float]:
     """Extrai todos os percentuais possíveis, mesmo com um ruído antes do número."""
     normalized = text.replace(" ", "").replace("O", "0").replace("o", "0")
     values: list[float] = []
-    for match in re.finditer(r"(\d{1,3})[,\.](\d{1,2})%?", normalized):
+    # Regex corrigida: \d em vez de %5Cd (estava corrompida)
+    for match in re.finditer(r"(\d{1,3})[,.](\d{1,2})%?", normalized):
         value = float(f"{match.group(1)}.{match.group(2)}")
         if 0 <= value <= 100:
             values.append(value)
@@ -210,6 +211,18 @@ def ler_percentuais(text: str) -> list[float]:
         value = float(f"{digits[:-2]}.{digits[-2:]}")
         if 0 <= value <= 100:
             values.append(value)
+    # Gera variantes corrigindo confusões comuns de OCR (7 <-> 9)
+    originais = list(values)
+    for valor in originais:
+        texto = f"{valor:.2f}"
+        for a, b in [("7", "9"), ("9", "7")]:
+            texto_alt = texto.replace(a, b)
+            try:
+                valor_alt = float(texto_alt)
+                if 0 <= valor_alt <= 100 and valor_alt not in values:
+                    values.append(valor_alt)
+            except ValueError:
+                pass
     return values
 
 
