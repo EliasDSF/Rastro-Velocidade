@@ -75,7 +75,7 @@ def extrair_intervalo(image: Image.Image) -> dict[str, str] | None:
         return None
     left_panel = image.crop((0, 0, min(width, int(width * 0.30)), int(height * 0.38)))
     leituras: list[tuple[tuple[str, ...], tuple[str, ...]]] = []
-    for escala, limiar in ((6, None), (5, 215), (5, 225), (6, 215), (7, None), (7, 225)):
+    for escala, limiar in ((6, None), (5, 215), (6, 215)):
         text = ocr(preparar(left_panel, escala=escala, limiar=limiar), psm=6)
         normalized = text.replace("~", "-").replace("—", "-")
         values = DATE_TIME_RE.findall(normalized)
@@ -194,12 +194,6 @@ def ler_percentuais(text: str) -> list[float]:
         ("7", "9"), ("9", "7"),
         ("1", "7"), ("7", "1"),
         ("0", "8"), ("8", "0"),
-        ("6", "8"), ("8", "6"),
-        ("5", "6"), ("6", "5"),
-        ("1", "9"), ("9", "1"),
-        ("0", "6"), ("6", "0"),
-        ("3", "9"), ("9", "3"),
-        ("2", "7"), ("7", "2"),
     ]
     for valor in originais:
         texto = f"{valor:.2f}"
@@ -243,13 +237,13 @@ def _extrair_legenda_painel(panel: Image.Image) -> dict[str, object] | None:
 
     leituras_faixa: list[tuple[str, str]] = []
     deslocamentos = sorted({
-        25, 30, 35, 40, 45, 50, 55, 60,
-        *(round(panel_width * fracao) for fracao in (0.10, 0.12, 0.15, 0.18)),
+        30, 40, 50,
+        *(round(panel_width * fracao) for fracao in (0.12, 0.15)),
     })
     for deslocamento in deslocamentos:
         label_left = max(0, winner["inicio"] - deslocamento)
         label_crop = panel.crop((label_left, top, winner["inicio"], bottom))
-        for escala in (8, 10, 12, 16):
+        for escala in (10, 14):
             candidate_text = ocr(preparar(label_crop, escala=escala), psm=7)
             candidate_range = ler_faixa(candidate_text)
             if candidate_range:
@@ -267,9 +261,9 @@ def _extrair_legenda_painel(panel: Image.Image) -> dict[str, object] | None:
     percentual_visual = winner["largura"] / largura_grade * 100
     leituras_percentual: list[tuple[float, str]] = []
 
-    for fracao in (0.68, 0.70, 0.72, 0.74):
+    for fracao in (0.70, 0.74, 0.78):
         percent_crop = panel.crop((round(panel_width * fracao), percent_top, panel_width, percent_bottom))
-        for threshold in (200, 215, 185, None):
+        for threshold in (200, None):
             candidate_text = ocr(
                 preparar(percent_crop, escala=14, limiar=threshold),
                 psm=7,
@@ -285,44 +279,29 @@ def _extrair_legenda_painel(panel: Image.Image) -> dict[str, object] | None:
                     if valor < 40:
                         candidatos.append(valor + 70)
             for candidate_value in candidatos:
-                if abs(candidate_value - percentual_visual) <= 25:
+                if abs(candidate_value - percentual_visual) <= 30:
                     leituras_percentual.append((round(candidate_value, 2), candidate_text))
 
     if not leituras_percentual:
-        for fracao in (0.76, 0.78, 0.80, 0.82, 0.84, 0.86):
+        for fracao in (0.72, 0.76, 0.80):
             percent_crop = panel.crop((round(panel_width * fracao), percent_top, panel_width, percent_bottom))
-            for escala in (8, 10, 12):
-                for threshold in (None, 180, 190, 200):
-                    for psm in (7, 11):
-                        candidate_text = ocr(
-                            preparar(percent_crop, escala=escala, limiar=threshold),
-                            psm=psm,
-                        )
-                        valores = ler_percentuais(candidate_text)
-                        compacto = candidate_text.replace(" ", "")
-                        if "%" not in compacto and compacto.endswith("8"):
-                            valores.extend(int(valor * 10) / 10 for valor in list(valores))
-                        candidatos = list(valores)
-                        if percentual_visual >= 75:
-                            for valor in valores:
-                                if valor < 40:
-                                    candidatos.append(valor + 70)
-                        for candidate_value in candidatos:
-                            if abs(candidate_value - percentual_visual) <= 25:
-                                leituras_percentual.append((round(candidate_value, 2), candidate_text))
-
-    if not leituras_percentual:
-        for fracao in (0.68, 0.70, 0.72, 0.74, 0.76, 0.78, 0.80):
-            percent_crop = panel.crop((round(panel_width * fracao), percent_top, panel_width, percent_bottom))
-            for threshold in (None, 200, 215, 185):
+            for threshold in (None, 200):
                 candidate_text = ocr(
-                    preparar(percent_crop, escala=14, limiar=threshold),
+                    preparar(percent_crop, escala=12, limiar=threshold),
                     psm=7,
-                    whitelist="0123456789,.%",
                 )
                 valores = ler_percentuais(candidate_text)
-                for candidate_value in valores:
-                    leituras_percentual.append((round(candidate_value, 2), candidate_text))
+                compacto = candidate_text.replace(" ", "")
+                if "%" not in compacto and compacto.endswith("8"):
+                    valores.extend(int(valor * 10) / 10 for valor in list(valores))
+                candidatos = list(valores)
+                if percentual_visual >= 75:
+                    for valor in valores:
+                        if valor < 40:
+                            candidatos.append(valor + 70)
+                for candidate_value in candidatos:
+                    if abs(candidate_value - percentual_visual) <= 30:
+                        leituras_percentual.append((round(candidate_value, 2), candidate_text))
 
     percentage = None
     percent_text = ""
