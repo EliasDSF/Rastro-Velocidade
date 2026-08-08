@@ -8,7 +8,6 @@ O programa lê duas regiões independentes:
 1. "Intervalo de Datas", no painel esquerdo.
 2. "Velocidade (km/h)", no canto inferior direito.
 """
-
 from __future__ import annotations
 
 import json
@@ -22,12 +21,10 @@ from pathlib import Path
 
 from PIL import Image, ImageEnhance, ImageOps
 
-
 DATE_TIME_RE = re.compile(
     r"(\d{2})[\s/.-]*(\d{2})[\s/.-]*(\d{4})\s+"
     r"(\d{1,2})\s*[:.]\s*(\d{2})"
 )
-
 
 def localizar_tesseract() -> str:
     encontrado = shutil.which("tesseract")
@@ -45,7 +42,6 @@ def localizar_tesseract() -> str:
     raise RuntimeError(
         "Tesseract OCR não encontrado. Execute primeiro o arquivo INSTALAR.bat."
     )
-
 
 def ocr(image: Image.Image, psm: int = 7, whitelist: str | None = None) -> str:
     """Executa OCR local em uma imagem já recortada e ampliada."""
@@ -65,7 +61,6 @@ def ocr(image: Image.Image, psm: int = 7, whitelist: str | None = None) -> str:
         )
         return result.stdout.strip()
 
-
 def preparar(image: Image.Image, escala: int = 6, limiar: int | None = None) -> Image.Image:
     gray = ImageOps.grayscale(image)
     gray = ImageEnhance.Contrast(gray).enhance(2.0)
@@ -74,16 +69,11 @@ def preparar(image: Image.Image, escala: int = 6, limiar: int | None = None) -> 
         gray = gray.point(lambda value: 255 if value >= limiar else 0)
     return gray
 
-
 def extrair_intervalo(image: Image.Image) -> dict[str, str] | None:
     width, height = image.size
     if width < 500:
         return None
-
-    # O campo fica no painel esquerdo, abaixo do texto "Intervalo de Datas".
-    # Mantém a estratégia já validada no Windows para o campo de datas.
     left_panel = image.crop((0, 0, min(width, int(width * 0.30)), int(height * 0.38)))
-    # Faz várias leituras e usa consenso. Isso evita trocas isoladas como 2026/2028.
     leituras: list[tuple[tuple[str, ...], tuple[str, ...]]] = []
     for escala, limiar in ((6, None), (5, 215), (5, 225), (6, 215), (7, None), (7, 225)):
         text = ocr(preparar(left_panel, escala=escala, limiar=limiar), psm=6)
@@ -101,10 +91,8 @@ def extrair_intervalo(image: Image.Image) -> dict[str, str] | None:
             )
             if valido:
                 leituras.append((inicio, fim))
-
     if not leituras:
         return None
-
     start, end = Counter(leituras).most_common(1)[0][0]
     return {
         "data_inicio": f"{start[0]}/{start[1]}/{start[2]}",
@@ -113,19 +101,16 @@ def extrair_intervalo(image: Image.Image) -> dict[str, str] | None:
         "hora_fim": f"{int(end[3]):02d}:{end[4]}",
     }
 
-
 def colorido(rgb: tuple[int, int, int]) -> bool:
     red, green, blue = rgb
     saturation = max(rgb) - min(rgb)
     brightness = (red + green + blue) / 3
     return saturation > 30 and 35 < brightness < 250
 
-
 def maior_segmento_por_linha(panel: Image.Image) -> list[dict[str, int]]:
     pixels = panel.load()
     width, height = panel.size
     rows: list[dict[str, int]] = []
-
     for y in range(height):
         start = -1
         best: tuple[int, int, int] | None = None
@@ -146,6 +131,18 @@ def maior_segmento_por_linha(panel: Image.Image) -> list[dict[str, int]]:
             rows.append({"y": y, "inicio": best[0], "fim": best[1], "largura": best[2]})
     return rows
 
+def corrigir_numero(valor: str) -> str:
+    if "," in valor:
+        numero = float(valor.replace(",", "."))
+    else:
+        digitos = re.sub(r"\D", "", valor)
+        if len(digitos) >= 2 and int(digitos) > 10:
+            if len(digitos) > 2:
+                digitos = digitos[-2:]
+            numero = float(f"{digitos[:-1]}.{digitos[-1]}")
+        else:
+            numero = float(digitos)
+    return f"{numero:g}".replace(".", ",")
 
 def ler_faixa(text: str) -> str | None:
     normalized = (
@@ -157,21 +154,6 @@ def ler_faixa(text: str) -> str | None:
     )
     above = re.search(r"(?:>=|≥)(\d+(?:,\d+)?)", normalized)
     interval = re.search(r"(\d+(?:,\d+)?)a(\d+(?:,\d+)?)", normalized)
-
-    def corrigir_numero(valor: str) -> str:
-        if "," in valor:
-            numero = float(valor.replace(",", "."))
-        else:
-            digitos = re.sub(r"\D", "", valor)
-            # O OCR pode apagar a vírgula: 2,5 vira 25; 1,5 vira 15.
-            if len(digitos) >= 2 and int(digitos) > 10:
-                if len(digitos) > 2:
-                    digitos = digitos[-2:]
-                numero = float(f"{digitos[:-1]}.{digitos[-1]}")
-            else:
-                numero = float(digitos)
-        return f"{numero:g}".replace(".", ",")
-
     if above:
         return f"≥ {corrigir_numero(above.group(1))} km/h"
     if interval:
@@ -181,14 +163,12 @@ def ler_faixa(text: str) -> str | None:
             return f"{inicio} a {fim} km/h"
     return None
 
-
 def ler_percentual(text: str) -> float | None:
     normalized = text.replace(" ", "").replace("O", "0").replace("o", "0")
-    decimal = re.search(r"(\d{1,3})\s*[,\.]\s*(\d{1,2})\s*%?", normalized)
+    decimal = re.search(r"(\d{1,3})\s*[,.]\s*(\d{1,2})\s*%?", normalized)
     if decimal:
         value = float(f"{decimal.group(1)}.{decimal.group(2)}")
         return value if 0 <= value <= 100 else None
-
     compact = re.search(r"(\d{3,5})\s*%", normalized)
     if compact:
         digits = compact.group(1)
@@ -196,12 +176,10 @@ def ler_percentual(text: str) -> float | None:
         return value if 0 <= value <= 100 else None
     return None
 
-
 def ler_percentuais(text: str) -> list[float]:
     """Extrai todos os percentuais possíveis, mesmo com um ruído antes do número."""
     normalized = text.replace(" ", "").replace("O", "0").replace("o", "0")
     values: list[float] = []
-    # Regex corrigida: \d em vez de %5Cd (estava corrompida)
     for match in re.finditer(r"(\d{1,3})[,.](\d{1,2})%?", normalized):
         value = float(f"{match.group(1)}.{match.group(2)}")
         if 0 <= value <= 100:
@@ -211,11 +189,21 @@ def ler_percentuais(text: str) -> list[float]:
         value = float(f"{digits[:-2]}.{digits[-2:]}")
         if 0 <= value <= 100:
             values.append(value)
-    # Gera variantes corrigindo confusões comuns de OCR (7 <-> 9)
     originais = list(values)
+    confusoes = [
+        ("7", "9"), ("9", "7"),
+        ("1", "7"), ("7", "1"),
+        ("0", "8"), ("8", "0"),
+        ("6", "8"), ("8", "6"),
+        ("5", "6"), ("6", "5"),
+        ("1", "9"), ("9", "1"),
+        ("0", "6"), ("6", "0"),
+        ("3", "9"), ("9", "3"),
+        ("2", "7"), ("7", "2"),
+    ]
     for valor in originais:
         texto = f"{valor:.2f}"
-        for a, b in [("7", "9"), ("9", "7")]:
+        for a, b in confusoes:
             texto_alt = texto.replace(a, b)
             try:
                 valor_alt = float(texto_alt)
@@ -224,7 +212,6 @@ def ler_percentuais(text: str) -> list[float]:
             except ValueError:
                 pass
     return values
-
 
 def _extrair_legenda_painel(panel: Image.Image) -> dict[str, object] | None:
     panel = panel.convert("RGB")
@@ -239,7 +226,6 @@ def _extrair_legenda_painel(panel: Image.Image) -> dict[str, object] | None:
     ]
     if not candidates:
         return None
-
     winner = max(candidates, key=lambda row: row["largura"])
     neighbors = [
         row for row in candidates
@@ -251,14 +237,10 @@ def _extrair_legenda_painel(panel: Image.Image) -> dict[str, object] | None:
     half_height = max(12, min(18, round(panel_height * 0.04)))
     top = max(0, center_y - half_height)
     bottom = min(panel_height, center_y + half_height)
-    # O percentual fica mais afastado da linha central em alguns níveis de
-    # zoom. Usa um recorte vertical maior apenas para a coluna numérica.
     percent_half_height = max(16, min(30, round(panel_height * 0.06)))
     percent_top = max(0, center_y - percent_half_height)
     percent_bottom = min(panel_height, center_y + percent_half_height)
 
-    # Lê recortes progressivamente mais próximos da barra. Isso funciona tanto
-    # no painel largo quanto na legenda estreita de telas com maior resolução.
     leituras_faixa: list[tuple[str, str]] = []
     deslocamentos = sorted({
         25, 30, 35, 40, 45, 50, 55, 60,
@@ -280,38 +262,9 @@ def _extrair_legenda_painel(panel: Image.Image) -> dict[str, object] | None:
         speed_range = contagem_faixas.most_common(1)[0][0]
         label_text = next(text for value, text in leituras_faixa if value == speed_range)
 
-    # Faz vários recortes do lado direito para impedir que o primeiro dígito seja cortado.
-    # A largura da barra serve como validação geométrica contra leituras absurdas (94 -> 4).
     fim_grade_estimado = round(panel_width * 0.832)
     largura_grade = max(1, fim_grade_estimado - winner["inicio"])
     percentual_visual = winner["largura"] / largura_grade * 100
-    leituras_percentual: list[tuple[float, str]] = []
-
-    for fracao in (0.68, 0.70, 0.72, 0.74):
-        percent_crop = panel.crop((round(panel_width * fracao), percent_top, panel_width, percent_bottom))
-        for threshold in (200, 215, 185, None):
-            candidate_text = ocr(
-                preparar(percent_crop, escala=14, limiar=threshold),
-                psm=7,
-                whitelist="0123456789,.%",
-            )
-            valores = ler_percentuais(candidate_text)
-            compacto = candidate_text.replace(" ", "")
-            # Em textos muito pequenos, o Tesseract pode ler o símbolo % como
-            # um 8 e confundir o primeiro dígito (ex.: 92,1% -> 22.18).
-            # A geometria da barra é usada somente para validar a correção.
-            if "%" not in compacto and compacto.endswith("8"):
-                valores.extend(int(valor * 10) / 10 for valor in list(valores))
-            candidatos = list(valores)
-            if percentual_visual >= 75:
-                for valor in valores:
-                    if valor < 40:
-                        candidatos.append(valor + 70)
-            for candidate_value in candidatos:
-                if abs(candidate_value - percentual_visual) <= 20:
-                    leituras_percentual.append((round(candidate_value, 2), candidate_text))
-
-    # Segunda leitura focada somente na coluna numérica da extrema direita.
     leituras_percentual: list[tuple[float, str]] = []
 
     for fracao in (0.68, 0.70, 0.72, 0.74):
@@ -335,7 +288,6 @@ def _extrair_legenda_painel(panel: Image.Image) -> dict[str, object] | None:
                 if abs(candidate_value - percentual_visual) <= 25:
                     leituras_percentual.append((round(candidate_value, 2), candidate_text))
 
-    # Segunda leitura focada somente na coluna numérica da extrema direita.
     if not leituras_percentual:
         for fracao in (0.76, 0.78, 0.80, 0.82, 0.84, 0.86):
             percent_crop = panel.crop((round(panel_width * fracao), percent_top, panel_width, percent_bottom))
@@ -359,7 +311,6 @@ def _extrair_legenda_painel(panel: Image.Image) -> dict[str, object] | None:
                             if abs(candidate_value - percentual_visual) <= 25:
                                 leituras_percentual.append((round(candidate_value, 2), candidate_text))
 
-    # Terceira leitura: sem filtro visual, usa todos os valores encontrados
     if not leituras_percentual:
         for fracao in (0.68, 0.70, 0.72, 0.74, 0.76, 0.78, 0.80):
             percent_crop = panel.crop((round(panel_width * fracao), percent_top, panel_width, percent_bottom))
@@ -414,7 +365,6 @@ def _extrair_legenda_painel(panel: Image.Image) -> dict[str, object] | None:
         "ocr_percentual": percent_text,
     }
 
-
 def extrair_legenda(image: Image.Image) -> dict[str, object] | None:
     """Localiza a legenda no canto direito sem depender de tamanho fixo.
 
@@ -426,27 +376,20 @@ def extrair_legenda(image: Image.Image) -> dict[str, object] | None:
         return _extrair_legenda_painel(image)
 
     regioes_vistas: set[tuple[int, int]] = set()
-    # Começa pela posição mais comum para manter a análise rápida. As demais
-    # regiões são tentadas apenas se a legenda não for encontrada.
-    regioes = [(0.18, 0.47)] + [
-        (largura, topo)
-        for largura in (0.14, 0.18, 0.22, 0.27, 0.32)
-        for topo in (0.34, 0.42, 0.52)
-    ]
-    for largura_fracao, topo_fracao in regioes:
-        panel_width = max(220, round(width * largura_fracao))
-        panel_width = min(width, panel_width)
-        topo = round(height * topo_fracao)
-        chave = (panel_width, topo)
-        if chave in regioes_vistas:
-            continue
-        regioes_vistas.add(chave)
-        panel = image.crop((width - panel_width, topo, width, height))
-        resultado = _extrair_legenda_painel(panel)
-        if resultado:
-            return resultado
+    for largura_fracao in (0.30, 0.28, 0.26, 0.32, 0.24, 0.34, 0.22, 0.36, 0.20, 0.38, 0.40):
+        for topo_fracao in (0.55, 0.50, 0.60, 0.45, 0.65, 0.40, 0.70):
+            panel_width = max(220, round(width * largura_fracao))
+            panel_width = min(width, panel_width)
+            topo = round(height * topo_fracao)
+            chave = (panel_width, topo)
+            if chave in regioes_vistas:
+                continue
+            regioes_vistas.add(chave)
+            panel = image.crop((width - panel_width, topo, width, height))
+            resultado = _extrair_legenda_painel(panel)
+            if resultado:
+                return resultado
     return None
-
 
 def analisar(path: Path) -> dict[str, object]:
     image = Image.open(path).convert("RGB")
@@ -459,7 +402,6 @@ def analisar(path: Path) -> dict[str, object]:
         "status": "ok" if legend and (interval or image.width < 500) else "revisar",
     }
 
-
 def main() -> int:
     if len(sys.argv) < 2:
         print("Informe pelo menos uma imagem.", file=sys.stderr)
@@ -467,7 +409,6 @@ def main() -> int:
     for argument in sys.argv[1:]:
         print(json.dumps(analisar(Path(argument)), ensure_ascii=False, indent=2))
     return 0
-
 
 if __name__ == "__main__":
     raise SystemExit(main())
