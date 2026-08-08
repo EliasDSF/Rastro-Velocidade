@@ -1,0 +1,43 @@
+RASTRO ANALÍTICO DE VELOCIDADE - TESTE PARA WINDOWS
+
+PRIMEIRA VEZ
+1. Extraia todo o conteúdo do arquivo ZIP.
+2. Dê dois cliques em INSTALAR.bat.
+3. Aguarde a mensagem "Instalação concluída".
+4. Dê dois cliques em ABRIR_PROGRAMA.bat.
+
+PRÓXIMOS USOS
+Use somente ABRIR_PROGRAMA.bat.
+
+COMO TESTAR
+1. Copie um print e pressione Ctrl+V dentro do programa, ou clique em
+   "Selecionar imagem".
+2. A análise começa automaticamente.
+3. Confira data, horários, faixa e maior porcentagem.
+4. Escolha uma das 14 colhedoras e atribua uma Frente de 1 a 4.
+5. Preencha ou confira Campo, Lotes e TCH.
+6. Clique em "Salvar na fila" para armazenar a imagem e o texto.
+7. Use "Ver 14 colhedoras" para acompanhar Pendente, Pronto ou Enviado.
+8. Dê dois cliques em uma linha da fila para carregar aquela colhedora.
+9. Clique em "Copiar imagem" e cole no WhatsApp com Ctrl+V.
+10. Clique em "Copiar texto" e cole na descrição da imagem.
+
+As frentes podem ser alteradas a qualquer momento. Cada colhedora guarda sua
+própria frente. As imagens, os textos e os estados da fila permanecem salvos
+mesmo quando a pasta do programa for substituída por uma versão nova.
+
+ENVIO MANUAL
+O programa copia a imagem como foto normal, sem o painel esquerdo. Depois de
+colar a imagem na conversa, use "Copiar texto" e cole o texto no campo de
+descrição antes de enviar. O programa não abre nem controla o WhatsApp Web.
+
+O programa procura:
+- "Intervalo de Datas" no painel esquerdo;
+- "Velocidade (km/h)" na legenda do canto inferior direito.
+
+A legenda é procurada em várias regiões proporcionais da imagem. Por isso, o
+programa aceita prints com resoluções, zoom e tamanhos diferentes, desde que a
+legenda de velocidade esteja visível no print completo.
+
+Se algum campo não estiver confiável, ele mostrará "Revisar" em vez de
+preencher um número inventado.
