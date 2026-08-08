@@ -312,6 +312,30 @@ def _extrair_legenda_painel(panel: Image.Image) -> dict[str, object] | None:
                     leituras_percentual.append((round(candidate_value, 2), candidate_text))
 
     # Segunda leitura focada somente na coluna numérica da extrema direita.
+    leituras_percentual: list[tuple[float, str]] = []
+
+    for fracao in (0.68, 0.70, 0.72, 0.74):
+        percent_crop = panel.crop((round(panel_width * fracao), percent_top, panel_width, percent_bottom))
+        for threshold in (200, 215, 185, None):
+            candidate_text = ocr(
+                preparar(percent_crop, escala=14, limiar=threshold),
+                psm=7,
+                whitelist="0123456789,.%",
+            )
+            valores = ler_percentuais(candidate_text)
+            compacto = candidate_text.replace(" ", "")
+            if "%" not in compacto and compacto.endswith("8"):
+                valores.extend(int(valor * 10) / 10 for valor in list(valores))
+            candidatos = list(valores)
+            if percentual_visual >= 75:
+                for valor in valores:
+                    if valor < 40:
+                        candidatos.append(valor + 70)
+            for candidate_value in candidatos:
+                if abs(candidate_value - percentual_visual) <= 25:
+                    leituras_percentual.append((round(candidate_value, 2), candidate_text))
+
+    # Segunda leitura focada somente na coluna numérica da extrema direita.
     if not leituras_percentual:
         for fracao in (0.76, 0.78, 0.80, 0.82, 0.84, 0.86):
             percent_crop = panel.crop((round(panel_width * fracao), percent_top, panel_width, percent_bottom))
@@ -332,38 +356,51 @@ def _extrair_legenda_painel(panel: Image.Image) -> dict[str, object] | None:
                                 if valor < 40:
                                     candidatos.append(valor + 70)
                         for candidate_value in candidatos:
-                            if abs(candidate_value - percentual_visual) <= 20:
+                            if abs(candidate_value - percentual_visual) <= 25:
                                 leituras_percentual.append((round(candidate_value, 2), candidate_text))
 
-   percentage = None
-percent_text = ""
-if leituras_percentual:
-    contagem = Counter(value for value, _ in leituras_percentual)
-    valores_validos = list(contagem)
-    if percentual_visual >= 75:
-        altos = [valor for valor in valores_validos if valor >= 60]
-        if altos:
-            valores_validos = altos
-    com_simbolo = {
-        valor for valor, texto_lido in leituras_percentual
-        if "%" in texto_lido
-    }
-    confiaveis = [valor for valor in valores_validos if valor in com_simbolo]
-    if confiaveis:
-        valores_validos = confiaveis
-    alvo_visual = min(100.0, percentual_visual)
-    proximos = [
-        valor for valor in valores_validos
-        if abs(valor - alvo_visual) <= 25
-    ]
-    if proximos:
-        valores_validos = proximos
-    # CHAVE: prioriza proximidade visual, depois frequência
-    percentage = min(
-        valores_validos,
-        key=lambda valor: (round(abs(valor - alvo_visual), 1), -contagem[valor]),
-    )
-    percent_text = next(text for value, text in leituras_percentual if value == percentage)
+    # Terceira leitura: sem filtro visual, usa todos os valores encontrados
+    if not leituras_percentual:
+        for fracao in (0.68, 0.70, 0.72, 0.74, 0.76, 0.78, 0.80):
+            percent_crop = panel.crop((round(panel_width * fracao), percent_top, panel_width, percent_bottom))
+            for threshold in (None, 200, 215, 185):
+                candidate_text = ocr(
+                    preparar(percent_crop, escala=14, limiar=threshold),
+                    psm=7,
+                    whitelist="0123456789,.%",
+                )
+                valores = ler_percentuais(candidate_text)
+                for candidate_value in valores:
+                    leituras_percentual.append((round(candidate_value, 2), candidate_text))
+
+    percentage = None
+    percent_text = ""
+    if leituras_percentual:
+        contagem = Counter(value for value, _ in leituras_percentual)
+        valores_validos = list(contagem)
+        if percentual_visual >= 75:
+            altos = [valor for valor in valores_validos if valor >= 60]
+            if altos:
+                valores_validos = altos
+        com_simbolo = {
+            valor for valor, texto_lido in leituras_percentual
+            if "%" in texto_lido
+        }
+        confiaveis = [valor for valor in valores_validos if valor in com_simbolo]
+        if confiaveis:
+            valores_validos = confiaveis
+        alvo_visual = min(100.0, percentual_visual)
+        proximos = [
+            valor for valor in valores_validos
+            if abs(valor - alvo_visual) <= 30
+        ]
+        if proximos:
+            valores_validos = proximos
+        percentage = min(
+            valores_validos,
+            key=lambda valor: (round(abs(valor - alvo_visual), 1), -contagem[valor]),
+        )
+        percent_text = next(text for value, text in leituras_percentual if value == percentage)
 
     if speed_range is None or percentage is None:
         return None
