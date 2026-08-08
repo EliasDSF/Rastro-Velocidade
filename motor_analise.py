@@ -37,6 +37,7 @@ def localizar_tesseract() -> str:
         Path(r"C:\Program Files\Tesseract-OCR\tesseract.exe"),
         Path(r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe"),
         Path.home() / "AppData/Local/Programs/Tesseract-OCR/tesseract.exe",
+        Path(r"C:\Tesseract-OCR\tesseract.exe"),
     ]
     for caminho in caminhos:
         if caminho.exists():
